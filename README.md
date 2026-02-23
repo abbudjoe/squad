@@ -84,6 +84,10 @@ If running multiple orchestrators on the same machine, see [`docs/worktrees.md`]
 
 Orchestrators can use Codex/Claude CLI instead of subagent fixers. The orchestrator handles git ops; the CLI worker just edits code. See [`docs/cli-workers.md`](./docs/cli-workers.md).
 
+### 6. Create your local config
+
+The templates in this repo are generic. You need a private local config layer with your project's repo paths, model choices, build commands, and conventions filled in. See [`docs/local-config.md`](./docs/local-config.md).
+
 ### Key Prompt Files
 
 | File | Purpose |
@@ -95,6 +99,7 @@ Orchestrators can use Codex/Claude CLI instead of subagent fixers. The orchestra
 | [`prompts/watchdog.md`](./prompts/watchdog.md) | Cron event text for loop resilience |
 | [`docs/worktrees.md`](./docs/worktrees.md) | Worktree isolation for parallel orchestrators |
 | [`docs/cli-workers.md`](./docs/cli-workers.md) | Using Codex/Claude CLI instead of subagent fixers |
+| [`docs/local-config.md`](./docs/local-config.md) | Setting up your private project-specific config |
 
 ## Architecture
 
