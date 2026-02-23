@@ -76,47 +76,87 @@ If running solo, you can skip the worktree and work directly in `{{repo_path}}`.
 
 ### Phase 2: Review/Fix Loop
 
-1. **Create your watchdog cron** to keep the loop alive:
-   ```
-   cron(action="add", job={
-     "name": "{{branch_name}}-loop",
-     "schedule": {"kind": "every", "everyMs": 180000},
-     "payload": {
-       "kind": "systemEvent",
-       "text": "Review/fix loop watchdog for {{branch_name}}. Check: is a reviewer or fixer running? If not, check the latest PR comment and spawn the appropriate next agent. If the review is clean (all sections empty), tag @{{maintainer}} ready for merge and disable this cron."
-     },
-     "sessionTarget": "main",
-     "enabled": true
-   })
-   ```
+> **CRITICAL: Do NOT exit after spawning a child.** You must stay alive and
+> wait for each child subagent to complete before proceeding to the next step.
+> Use `subagents(action="list")` to poll status and `sessions_history` to read
+> results. Only exit this phase when the review is clean and ready-for-merge
+> is posted.
 
-2. **Spawn a reviewer:**
-   ```
-   sessions_spawn(
-     model = "{{reviewer_model}}",
-     mode = "run",
-     label = "{{branch_name}}-reviewer-r1",
-     task = "You are a code reviewer. Review PR #N. [Include full diff, review standards, anti-rubber-stamp directive, structured output format]. Post review as PR comment via gh pr comment."
-   )
-   ```
+#### 2a. Create your watchdog cron (backup)
 
-3. **When reviewer completes**, read the review:
-   - If ALL sections empty → go to Phase 3
-   - If ANY issues → spawn a fixer
+The cron is insurance in case you time out mid-loop. The conductor uses it to
+resume the loop from the last PR comment state.
 
-4. **Spawn a fixer:**
-   ```
-   sessions_spawn(
-     model = "{{fixer_model}}",
-     mode = "run",
-     label = "{{branch_name}}-fixer-r1",
-     task = "You are a code fixer. Fix ALL issues from the review. No deferrals. Commit, push, post chain-of-custody comment. [Include review issues, repo details, git rules]."
-   )
-   ```
+```
+cron(action="add", job={
+  "name": "{{branch_name}}-loop",
+  "schedule": {"kind": "every", "everyMs": 180000},
+  "payload": {
+    "kind": "systemEvent",
+    "text": "Review/fix loop watchdog for {{branch_name}}. Check: is a reviewer or fixer running? If not, check the latest PR comment and spawn the appropriate next agent. If the review is clean (all sections empty), tag @{{maintainer}} ready for merge and disable this cron."
+  },
+  "sessionTarget": "main",
+  "enabled": true
+})
+```
 
-5. **When fixer completes**, spawn another reviewer (re-review).
+#### 2b. Spawn a reviewer and WAIT for it
 
-6. **Repeat** until the review is clean.
+```
+result = sessions_spawn(
+  model = "{{reviewer_model}}",
+  mode = "run",
+  label = "{{branch_name}}-reviewer-r1",
+  task = "You are a code reviewer. Review PR #N. [Include full diff, review standards, anti-rubber-stamp directive, structured output format]. Post review as PR comment via gh pr comment."
+)
+child_session = result.childSessionKey
+```
+
+**Wait for completion** — poll every 30 seconds:
+```
+loop:
+  sleep 30
+  status = subagents(action="list")
+  if child is no longer in active list → break
+```
+
+**Read the result:**
+```
+history = sessions_history(sessionKey=child_session, limit=5)
+# Extract the review text from the assistant's final message
+```
+
+Alternatively, read the PR comment directly:
+```bash
+gh pr view {{pr_number}} --json comments --jq '.comments[-1].body'
+```
+
+#### 2c. Evaluate the review
+
+Parse the review for issue sections:
+- If Blocking Issues, Non-blocking Issues, AND Nice-to-haves are ALL empty → go to Phase 3
+- If ANY section has items → continue to 2d
+
+#### 2d. Spawn a fixer and WAIT for it
+
+```
+result = sessions_spawn(
+  model = "{{fixer_model}}",
+  mode = "run",
+  label = "{{branch_name}}-fixer-r1",
+  task = "You are a code fixer. Fix ALL issues from the review. No deferrals. Commit, push, post chain-of-custody comment. [Include review issues, repo details, git rules]."
+)
+child_session = result.childSessionKey
+```
+
+**Wait for completion** — same polling pattern as 2b.
+
+**Verify artifacts:** Read the chain-of-custody PR comment to confirm commit SHA and push.
+
+#### 2e. Re-review
+
+Spawn another reviewer (increment the round number in the label: `-reviewer-r2`, `-r3`, etc.).
+Wait for it, evaluate, fix if needed. **Repeat 2b→2e until clean.**
 
 ### Phase 3: Ready for Merge
 

@@ -4,6 +4,22 @@ Hard-won lessons from months of running AI agent review/fix loops in production.
 
 ## Subagent Behavior
 
+### Fire-and-forget orchestrators lose the loop
+**Problem:** When an orchestrator spawns a reviewer subagent and its prompt doesn't explicitly say to wait, it treats "spawn child" as its final action and exits. The reviewer runs and posts its review, but nobody is alive to read it and spawn the fixer. The loop dies after one step.
+
+**Fix:** The orchestrator prompt must include explicit synchronous waiting instructions:
+1. *"Do NOT exit after spawning a child subagent."*
+2. *"Poll `subagents(action='list')` every 30 seconds until the child completes."*
+3. *"Read the child's output via `sessions_history` or by reading the PR comment directly."*
+4. *"Only exit when the review is clean and ready-for-merge is posted."*
+
+The watchdog cron is backup — it lets the conductor resume if the orchestrator times out mid-loop. But the orchestrator should drive the loop itself whenever possible.
+
+### Persistent sessions need platform support
+**Problem:** `mode=session` (persistent subagents that survive across turns) requires thread support from the messaging platform. Not all platforms support it (e.g., platforms without native thread primitives).
+
+**Fix:** Use `mode=run` with a generous timeout (e.g., 30 minutes) and explicit polling. The orchestrator completes the full loop within one run. If it times out, the watchdog cron and PR comment state allow the conductor to re-spawn and continue.
+
 ### "Optional" means "skip" to an AI
 **Problem:** When a review says "Nice-to-have: consider adding X," subagents interpret this as truly optional and skip it.
 
