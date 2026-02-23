@@ -160,9 +160,12 @@ Wait for it, evaluate, fix if needed. **Repeat 2b→2e until clean.**
 
 ### Phase 3: Ready for Merge
 
-1. Post on the PR:
+1. Post on the PR (markdown-safe):
    ```bash
-   gh pr comment {{pr_number}} --repo {{repo}} --body "@{{maintainer}} ready for merge"
+   cat > /tmp/ready-{{pr_number}}.md <<'EOF'
+   @{{maintainer}} ready for merge
+   EOF
+   gh pr comment {{pr_number}} --repo {{repo}} --body-file /tmp/ready-{{pr_number}}.md
    ```
 
 2. Disable your watchdog cron.
@@ -187,6 +190,7 @@ Include these in EVERY fixer prompt:
 - No deferrals. Nothing gets pushed to "future work."
 - Commit message: clean conventional-commit format, plain text, no markdown.
 - PR comment: proper markdown (headers, bullets, code blocks).
+- Always post GitHub comments with `--body-file` (heredoc → markdown file), never inline escaped multiline `--body`.
 - Reference review issue numbers (B1, NB3) in the chain-of-custody comment.
 - Verify build + tests pass before pushing.
 

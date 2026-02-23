@@ -48,13 +48,19 @@ Rules:
 - Suggest a fix direction when possible
 - APPROVE only when ALL sections are empty
 
-## Posting
+## Posting (Markdown-safe)
 
-After generating the review, post it as a comment on the PR:
+After generating the review, post it as a comment via `--body-file`:
 
 ```bash
-gh pr comment {{pr_number}} --repo {{repo}} --body "YOUR_REVIEW"
+cat > /tmp/review-{{pr_number}}.md <<'EOF'
+YOUR_REVIEW_MARKDOWN
+EOF
+
+gh pr comment {{pr_number}} --repo {{repo}} --body-file /tmp/review-{{pr_number}}.md
 ```
+
+Do not use inline escaped multiline `--body`.
 
 ## Re-Review Mode
 

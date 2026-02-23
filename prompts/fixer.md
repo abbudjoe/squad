@@ -38,19 +38,21 @@ You are a code fixer for {{project_name}}. Fix ALL issues from the PR #{{pr_numb
 
 ### Chain-of-Custody Comment
 
-Post a properly formatted markdown comment on the PR listing exactly what was fixed:
+Post a properly formatted markdown comment on the PR listing exactly what was fixed.
+Use `--body-file` (never inline escaped multiline `--body`):
 
 ```bash
-gh pr comment {{pr_number}} --repo {{repo}} --body "## Fixer Report
+cat > /tmp/fixer-report-{{pr_number}}.md <<'EOF'
+## Fixer Report
 
 ### Commit
-\`{{commit_sha}}\` — \`{{commit_message_first_line}}\`
+`{{commit_sha}}` — `{{commit_message_first_line}}`
 
 ### Blocking Issues
 - **B1:** {{what_you_did}}
 - **B2:** {{what_you_did}}
 
-### Non-blocking Issues  
+### Non-blocking Issues
 - **NB1:** {{what_you_did}}
 
 ### Nice-to-haves
@@ -58,10 +60,14 @@ gh pr comment {{pr_number}} --repo {{repo}} --body "## Fixer Report
 
 ### Verification
 - Build: ✅/❌
-- Tests: ✅/❌ (which tests ran)"
+- Tests: ✅/❌ (which tests ran)
+EOF
+
+gh pr comment {{pr_number}} --repo {{repo}} --body-file /tmp/fixer-report-{{pr_number}}.md
 ```
 
 ### Formatting Requirements
 - PR comment must use proper markdown: headers (`##`), bullet lists (`-`), code blocks (`` ` ``), bold (`**`)
+- Always post GitHub comments using `--body-file` (heredoc → markdown file)
 - Commit message must be plain text with conventional-commit format — no markdown
 - Reference the review issue numbers (B1, NB3, NH2, etc.) so the re-reviewer can cross-check
