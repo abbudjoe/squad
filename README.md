@@ -19,27 +19,43 @@ Squad defines:
 ## How It Works
 
 ```
-┌─────────────┐     ┌──────────┐     ┌─────────────┐
-│ Orchestrator │────▶│ Reviewer │────▶│   Fixer     │
-│   (main)     │◀────│  (opus)  │◀────│  (codex)   │
-└──────┬───────┘     └──────────┘     └─────────────┘
-       │
-       ▼
-  ┌─────────┐
-  │ Watchdog │  ← cron every 3min
-  │  (cron)  │
-  └─────────┘
+                    ┌─────────────────────────────┐
+                    │    Conductor (main session)  │
+                    │  assigns work, merges PRs    │
+                    └──────┬──────┬──────┬─────────┘
+                           │      │      │
+              ┌────────────┘      │      └────────────┐
+              ▼                   ▼                    ▼
+   ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+   │ Orchestrator A    │ │ Orchestrator B    │ │ Orchestrator C    │
+   │ (persistent)      │ │ (persistent)      │ │ (persistent)      │
+   │ owns PR #101      │ │ owns PR #102      │ │ owns PR #103      │
+   │ ┌────┐ ┌─────┐   │ │ ┌────┐ ┌─────┐   │ │ ┌────┐ ┌─────┐   │
+   │ │Rev.│↔│Fixer│   │ │ │Rev.│↔│Fixer│   │ │ │Rev.│↔│Fixer│   │
+   │ └────┘ └─────┘   │ │ └────┘ └─────┘   │ │ └────┘ └─────┘   │
+   │ ┌─────────┐      │ │ ┌─────────┐      │ │ ┌─────────┐      │
+   │ │Watchdog │      │ │ │Watchdog │      │ │ │Watchdog │      │
+   │ └─────────┘      │ │ └─────────┘      │ │ └─────────┘      │
+   └──────────────────┘ └──────────────────┘ └──────────────────┘
 ```
 
-1. **Orchestrator** creates a branch, implements code, opens a PR
-2. **Orchestrator** spawns a **Reviewer** subagent on the PR diff
-3. Reviewer posts structured review as a PR comment
-4. If issues found → Orchestrator spawns a **Fixer** subagent
-5. Fixer resolves ALL issues, commits, pushes, posts chain-of-custody comment
-6. Orchestrator spawns another Reviewer (re-review)
-7. Loop continues until review is clean (all sections empty)
-8. Orchestrator tags the PR ready for merge
-9. **Watchdog cron** ensures the loop keeps progressing even if the orchestrator loses context
+### Two-Level Architecture
+
+**Conductor** (your main session):
+1. Decomposes work into independent tasks
+2. Spawns **Orchestrator subagents** — one per task, as persistent sessions
+3. Monitors health and handles merge sequencing
+4. Stays lean — never reads PR diffs or review details
+
+**Orchestrator** (persistent subagent, one per PR):
+1. Creates a branch, implements the feature/fix, opens a PR
+2. Creates its own **watchdog cron** to keep progress moving
+3. Spawns **Reviewer** subagents on the PR diff
+4. Spawns **Fixer** subagents when reviews find issues
+5. Loops reviewer↔fixer until the review is clean
+6. Tags the PR ready for merge and reports back to the conductor
+
+This architecture solves the context pressure problem: each orchestrator has a clean, focused context for its one PR. The conductor only tracks "which orchestrator owns which PR" and handles merge ordering.
 
 ## Quick Start
 
@@ -60,16 +76,27 @@ Edit [`config/definition-of-done.md`](./config/definition-of-done.md) with your 
 
 See [`docs/single-loop.md`](./docs/single-loop.md) for running one PR through the cycle, or [`docs/parallel-loops.md`](./docs/parallel-loops.md) for running multiple PRs simultaneously.
 
+### Key Prompt Files
+
+| File | Purpose |
+|------|---------|
+| [`prompts/conductor.md`](./prompts/conductor.md) | Top-level agent: decomposes work, spawns orchestrators, merges |
+| [`prompts/orchestrator-subagent.md`](./prompts/orchestrator-subagent.md) | Persistent subagent: implements, runs its own review/fix loop |
+| [`prompts/reviewer.md`](./prompts/reviewer.md) | One-shot reviewer subagent |
+| [`prompts/fixer.md`](./prompts/fixer.md) | One-shot fixer subagent |
+| [`prompts/watchdog.md`](./prompts/watchdog.md) | Cron event text for loop resilience |
+
 ## Architecture
 
 ### Roles
 
-| Role | Model | Purpose |
-|------|-------|---------|
-| **Orchestrator** | Any (main session) | Spawns agents, tracks state, escalates blockers |
-| **Reviewer** | High-reasoning (e.g. Opus, o3) | Finds real issues, enforces standards |
-| **Fixer** | Fast coder (e.g. Codex, Sonnet) | Resolves all issues, commits, pushes |
-| **Watchdog** | N/A (cron trigger) | Fires every N minutes to keep loops alive |
+| Role | Model | Lifetime | Purpose |
+|------|-------|----------|---------|
+| **Conductor** | Any (main session) | Persistent | Assigns work, monitors health, merges PRs |
+| **Orchestrator** | Coder (e.g. Sonnet, Codex) | Persistent session | Owns one PR: implements, runs review/fix loop, tags ready |
+| **Reviewer** | High-reasoning (e.g. Opus, o3) | One-shot run | Finds real issues, enforces standards |
+| **Fixer** | Fast coder (e.g. Codex, Sonnet) | One-shot run | Resolves all issues, commits, pushes |
+| **Watchdog** | N/A (cron trigger) | Per-orchestrator | Fires every N minutes to keep that loop alive |
 
 ### PR State Machine
 
