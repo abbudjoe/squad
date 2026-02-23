@@ -76,6 +76,14 @@ Edit [`config/definition-of-done.md`](./config/definition-of-done.md) with your 
 
 See [`docs/single-loop.md`](./docs/single-loop.md) for running one PR through the cycle, or [`docs/parallel-loops.md`](./docs/parallel-loops.md) for running multiple PRs simultaneously.
 
+### 4. Parallel? Set up worktrees
+
+If running multiple orchestrators on the same machine, see [`docs/worktrees.md`](./docs/worktrees.md) for filesystem isolation.
+
+### 5. Prefer CLI workers?
+
+Orchestrators can use Codex/Claude CLI instead of subagent fixers. The orchestrator handles git ops; the CLI worker just edits code. See [`docs/cli-workers.md`](./docs/cli-workers.md).
+
 ### Key Prompt Files
 
 | File | Purpose |
@@ -85,6 +93,8 @@ See [`docs/single-loop.md`](./docs/single-loop.md) for running one PR through th
 | [`prompts/reviewer.md`](./prompts/reviewer.md) | One-shot reviewer subagent |
 | [`prompts/fixer.md`](./prompts/fixer.md) | One-shot fixer subagent |
 | [`prompts/watchdog.md`](./prompts/watchdog.md) | Cron event text for loop resilience |
+| [`docs/worktrees.md`](./docs/worktrees.md) | Worktree isolation for parallel orchestrators |
+| [`docs/cli-workers.md`](./docs/cli-workers.md) | Using Codex/Claude CLI instead of subagent fixers |
 
 ## Architecture
 
