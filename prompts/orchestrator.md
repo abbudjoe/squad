@@ -28,7 +28,7 @@ IMPLEMENTED → REVIEWING → FIXING → RE_REVIEWING → CLEAN → READY_FOR_ME
 
 - **Review stage complete** → Review comment URL exists on the PR
 - **Fix stage complete** → Commit SHA exists, branch is pushed, chain-of-custody PR comment URL exists
-- **Clean** → All three sections (Blocking, Non-blocking, Nice-to-haves) are empty in the latest review
+- **Clean** → All sections (Blocking, Non-blocking, Nice-to-haves, Deferred/Follow-ups) are empty in the latest review
 
 ### Verdict Normalization
 

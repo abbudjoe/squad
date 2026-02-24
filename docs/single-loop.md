@@ -113,7 +113,7 @@ gh pr comment 42 --repo owner/repo --body "@maintainer ready for merge"
 
 ## Step 7: Set Up the Watchdog (Optional but Recommended)
 
-If you want the loop to continue autonomously (e.g., while you sleep), create a watchdog cron using the [watchdog template](../prompts/watchdog.md).
+If you want the loop to continue autonomously (e.g., while you sleep), create a watchdog cron using the [watchdog template](../prompts/watchdog.md), and prefer reusing an existing markdown-safe watchdog template in your environment instead of writing fresh cron text.
 
 The watchdog ensures:
 - If a reviewer finishes and no fixer is spawned → it spawns one

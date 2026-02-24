@@ -43,9 +43,9 @@ In your daily notes or a tracking file:
 One cron per PR, using the [watchdog template](../prompts/watchdog.md):
 
 ```
-Cron: pr101-review-fix-loop (every 3min)
-Cron: pr102-review-fix-loop (every 3min)
-Cron: pr103-review-fix-loop (every 3min)
+Cron: pr101-review-fix-loop (every 5min, reuse markdown-safe watchdog template)
+Cron: pr102-review-fix-loop (every 5min, reuse markdown-safe watchdog template)
+Cron: pr103-review-fix-loop (every 5min, reuse markdown-safe watchdog template)
 ```
 
 ### 4. Spawn Initial Reviewers
