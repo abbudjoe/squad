@@ -76,11 +76,10 @@ If running solo, you can skip the worktree and work directly in `{{repo_path}}`.
 
 ### Phase 2: Review/Fix Loop
 
-> **CRITICAL: Do NOT exit after spawning a child.** You must stay alive and
-> wait for each child subagent to complete before proceeding to the next step.
-> Use `subagents(action="list")` to poll status and `sessions_history` to read
-> results. Only exit this phase when the review is clean and ready-for-merge
-> is posted.
+> ⛔ **HARD RULE: You are NOT DONE until the review is clean and `@{{maintainer}} ready for merge` is posted.**
+> Spawning a child subagent is NOT a terminal action. You MUST stay alive,
+> poll for child completion, read the result, and continue to the next stage.
+> If you exit after spawning a child, the loop dies. This is the #1 failure mode.
 
 #### 2a. Create your watchdog cron (backup)
 
@@ -102,6 +101,7 @@ cron(action="add", job={
 
 #### 2b. Spawn a reviewer and WAIT for it
 
+Spawn the reviewer:
 ```
 result = sessions_spawn(
   model = "{{reviewer_model}}",
@@ -112,23 +112,20 @@ result = sessions_spawn(
 child_session = result.childSessionKey
 ```
 
-**Wait for completion** — poll every 30 seconds:
+**⛔ DO NOT EXIT. DO NOT REPLY. You must now poll until the child finishes.**
+
+Use this exact pattern to wait:
 ```
-loop:
-  sleep 30
-  status = subagents(action="list")
-  if child is no longer in active list → break
+exec(command="sleep 30", timeout=35)     # Wait 30 seconds
+subagents(action="list")                 # Check if child is still active
+# If child is in "active" list → exec(command="sleep 30") again
+# If child is NOT in active list → it's done, proceed to 2c
+# Repeat this poll cycle until child completes (up to 15 minutes)
 ```
 
-**Read the result:**
-```
-history = sessions_history(sessionKey=child_session, limit=5)
-# Extract the review text from the assistant's final message
-```
-
-Alternatively, read the PR comment directly:
+After the child completes, read the review from the PR:
 ```bash
-gh pr view {{pr_number}} --json comments --jq '.comments[-1].body'
+gh pr view {{pr_number}} --repo {{repo}} --json comments --jq '.comments[-1].body'
 ```
 
 #### 2c. Evaluate the review
@@ -136,6 +133,8 @@ gh pr view {{pr_number}} --json comments --jq '.comments[-1].body'
 Parse the review for issue sections:
 - If Blocking Issues, Non-blocking Issues, AND Nice-to-haves are ALL empty → go to Phase 3
 - If ANY section has items → continue to 2d
+
+**⛔ DO NOT EXIT after evaluation. If items exist, you MUST spawn a fixer NOW.**
 
 #### 2d. Spawn a fixer and WAIT for it
 
@@ -149,14 +148,17 @@ result = sessions_spawn(
 child_session = result.childSessionKey
 ```
 
-**Wait for completion** — same polling pattern as 2b.
+**⛔ DO NOT EXIT. Poll with the same sleep/check pattern from 2b until fixer completes.**
 
 **Verify artifacts:** Read the chain-of-custody PR comment to confirm commit SHA and push.
 
 #### 2e. Re-review
 
 Spawn another reviewer (increment the round number in the label: `-reviewer-r2`, `-r3`, etc.).
-Wait for it, evaluate, fix if needed. **Repeat 2b→2e until clean.**
+
+**⛔ DO NOT EXIT. Poll until reviewer completes, evaluate, fix if needed.**
+
+**Repeat 2b→2e until clean. You should NOT exit this phase until Phase 3 is complete.**
 
 ### Phase 3: Ready for Merge
 
